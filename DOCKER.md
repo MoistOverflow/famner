@@ -47,7 +47,7 @@ devices arrive late.
 ## Updating
 
 ```sh
-docker pull ghcr.io/MoistOverflow/famner:latest
+docker pull ghcr.io/moistoverflow/famner:latest
 docker stop famner && docker rm famner
 # run the same `docker run …` again (the volume keeps the data)
 ```
