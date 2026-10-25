@@ -2,7 +2,7 @@
 # Change ORIGIN to the address people type in the browser, and TZ to your time zone.
 services:
   famner:
-    image: ghcr.io/YOUR-GITHUB-NAME/famner:latest   # or: build: .
+    image: ghcr.io/MoistOverflow/famner:latest   # or: build: .
     container_name: famner
     restart: unless-stopped
     init: true
