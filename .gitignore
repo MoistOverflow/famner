@@ -16,6 +16,8 @@
 # exported calendars and downloaded backups dropped into the project by accident
 *.ics
 backup-*.db
+# zipped copies of the project
+*.zip
 
 # ---------- generated ----------
 node_modules/

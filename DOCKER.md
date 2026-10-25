@@ -47,7 +47,7 @@ devices arrive late.
 ## Updating
 
 ```sh
-docker pull ghcr.io/moistoverflow/famner:latest
+docker pull ghcr.io/YOUR-GITHUB-NAME/famner:latest
 docker stop famner && docker rm famner
 # run the same `docker run …` again (the volume keeps the data)
 ```
@@ -83,7 +83,7 @@ docker run … -v "$PWD/famner-data":/data …
 Before building, the project needs:
 - `better-sqlite3` in `dependencies`: `npm i better-sqlite3`.
 - `@sveltejs/adapter-node`: `npm i -D @sveltejs/adapter-node@^5`.
-- `svelte.config.js` using adapter-node (see `deploy/svelte.config.js`).
+- The SvelteKit config in `vite.config.ts` using `adapter-node` rather than `adapter-auto` (this repo already does).
 - A `package-lock.json`.
 
 The build checks these and says what's missing. Then:

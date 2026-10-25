@@ -11,7 +11,7 @@ On your development machine or the server, in the project folder:
 
 ```sh
 npm install -D @sveltejs/adapter-node@^5         # 5.x is for SvelteKit 2 (6.x needs SvelteKit 3)
-cp deploy/svelte.config.js svelte.config.js     # or switch the adapter in your existing one
+# vite.config.ts already uses adapter-node (older projects: see deploy/svelte.config.js)
 npm install                                     # better-sqlite3 needs Node 18+ (it downloads a prebuilt
                                                 #  binary; on unusual systems it needs build tools)
 npm run build                                   # creates ./build

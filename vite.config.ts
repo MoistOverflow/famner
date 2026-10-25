@@ -1,5 +1,5 @@
 import tailwindcss from '@tailwindcss/vite';
-import adapter from '@sveltejs/adapter-auto';
+import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
@@ -15,10 +15,9 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-			adapter: adapter()
+			// adapter-node: `npm run build` makes a standalone Node server in ./build (run it with `node build`).
+			// Famner needs this: one long-running server for live updates and the SQLite database.
+			adapter: adapter({ out: 'build' })
 		})
 	]
 });

@@ -17,7 +17,9 @@ COPY package.json package-lock.json ./
 RUN node -e "const p=require('./package.json'); const miss=[]; if(!p.dependencies?.['better-sqlite3']) miss.push('better-sqlite3 must be in \"dependencies\" (npm i better-sqlite3)'); if(!(p.devDependencies?.['@sveltejs/adapter-node']||p.dependencies?.['@sveltejs/adapter-node'])) miss.push('@sveltejs/adapter-node is missing (npm i -D @sveltejs/adapter-node@^5)'); if(miss.length){console.error(miss.join('\n'));process.exit(1)}"
 RUN npm ci
 COPY . .
-RUN grep -q "adapter-node" svelte.config.js || (echo "svelte.config.js must use @sveltejs/adapter-node (see deploy/svelte.config.js)" && exit 1)
+# the SvelteKit config (vite.config.ts/js, or an older svelte.config.js) must use adapter-node
+RUN cat vite.config.* svelte.config.* 2>/dev/null | grep -q "adapter-node" \
+  || (echo "Your SvelteKit config (vite.config.ts) must use @sveltejs/adapter-node instead of adapter-auto" && exit 1)
 RUN npm run build && npm prune --omit=dev
 
 # ---------- 2. run ----------

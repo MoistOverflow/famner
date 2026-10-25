@@ -9,5 +9,6 @@ backups
 .git
 .github
 *.log
+*.zip
 Dockerfile
 docker-compose*.yml
