@@ -1,0 +1,35 @@
+# ---------- your family's data: never commit ----------
+# the database (and SQLite's side files) and backups, wherever they are
+/data/
+/backups/
+/famner-data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+# settings with real addresses, passwords or keys
+.env
+.env.*
+!.env.example
+# exported calendars and downloaded backups dropped into the project by accident
+*.ics
+backup-*.db
+
+# ---------- generated ----------
+node_modules/
+/build/
+/.svelte-kit/
+/package/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+*.log
+npm-debug.log*
+
+# ---------- computer / editor clutter ----------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

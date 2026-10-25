@@ -1,0 +1,29 @@
+# /etc/systemd/system/home-app.service — runs the app in the background and starts it at boot.
+#   sudo cp deploy/home-app.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now home-app
+#   journalctl -u home-app -f        (logs)
+[Unit]
+Description=Home app (calendar, groceries, chores)
+After=network.target
+
+[Service]
+Type=simple
+User=homeapp
+WorkingDirectory=/opt/home-app
+EnvironmentFile=/opt/home-app/.env
+ExecStart=/usr/bin/node build
+Restart=on-failure
+RestartSec=3
+# give the app time to close the database cleanly on stop
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+# a little hardening: the app only needs to write its data and backup folders
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/home-app/data /opt/home-app/backups
+
+[Install]
+WantedBy=multi-user.target

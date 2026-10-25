@@ -1,0 +1,20 @@
+# Famner with Docker Compose:   docker compose up -d
+# Change ORIGIN to the address people type in the browser, and TZ to your time zone.
+services:
+  famner:
+    image: ghcr.io/YOUR-GITHUB-NAME/famner:latest   # or: build: .
+    container_name: famner
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3000:3000"
+    environment:
+      ORIGIN: "http://192.168.1.20:3000"     # later behind nginx: https://famner.example.com
+      TZ: "America/New_York"
+      # behind a reverse proxy (nginx), so sign-in limits see each device's address:
+      # ADDRESS_HEADER: "X-Real-IP"
+    volumes:
+      - famner-data:/data                     # the database and its backups
+
+volumes:
+  famner-data:

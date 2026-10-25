@@ -1,0 +1,29 @@
+# /etc/systemd/system/famner.service — runs the app in the background and starts it at boot.
+#   sudo cp deploy/famner.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now famner
+#   journalctl -u famner -f        (logs)
+[Unit]
+Description=Famner (calendar, groceries, chores)
+After=network.target
+
+[Service]
+Type=simple
+User=famner
+WorkingDirectory=/opt/famner
+EnvironmentFile=/opt/famner/.env
+ExecStart=/usr/bin/node build
+Restart=on-failure
+RestartSec=3
+# give the app time to close the database cleanly on stop
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+# a little hardening: the app only needs to write its data and backup folders
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/famner/data /opt/famner/backups
+
+[Install]
+WantedBy=multi-user.target
