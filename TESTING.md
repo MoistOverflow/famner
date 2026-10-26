@@ -44,6 +44,31 @@ Use three accounts (an admin, a parent, a child), ideally on two devices at once
   - Tap a name to rename it or pick a different aisle. Click away to save; Esc cancels.
 - [ ] **Language/region:** with the device set to a 24-hour or Monday-first region, times and the week start follow it.
 
+## Notifications (Web Push, needs the https address)
+- [ ] **iPhone:** add Famner to the Home Screen, open it from there, and in *Account* tap *Turn on reminders* → *Allow*.
+  The text says "even when Famner is closed".
+- [ ] **Send one in 10 seconds,** then lock the phone: the notification arrives. Tapping it opens Famner.
+- [ ] **With Famner closed:**
+  - A child marks a chore done: the parents' phones get "Sam finished …". Reviewing it notifies the child's phone.
+  - A chore due in under 30 minutes: one "due soon" notification, not repeated.
+  - Someone adds 3 grocery items one after another: about 2 minutes after the last one, the others get *one* notification listing them. The person adding gets none.
+  - Turn off *Tell me when someone adds groceries* on one phone: it stops getting those, but still gets chore ones.
+- [ ] **Sign out** on a phone: it stops getting that person's notifications.
+- [ ] **Turn reminders off:** nothing more arrives on that device.
+
+## iCloud sync (with a real Apple ID)
+- [ ] **Account → Apple Calendar (iCloud):** connect with an app-specific password. Your normal Apple ID password is refused with a clear message.
+- [ ] **New Famner calendar:** sync an iCloud calendar. Its events appear in Famner, including repeating ones, all-day ones, and ones made in another time zone.
+- [ ] **iPhone → Famner:** change an event's title and time on the iPhone. Within about 5 minutes (or *Sync now*) Famner shows it.
+  Delete one on the iPhone: it disappears from Famner.
+- [ ] **Famner → iPhone:** add, edit and delete events in Famner. About 5 seconds later, pull down in iPhone Calendar to refresh.
+  - A weekly evening event stays on the right weekday and time, including after the clocks change.
+  - An event with an alert or an invitee set on the iPhone keeps them after you edit it in Famner.
+- [ ] **Repeating:** edit one occurrence on the iPhone; it shows in Famner as its own event. Delete it in Famner: that date is gone on the iPhone too.
+- [ ] **Existing Famner calendar → New iCloud calendar:** a new calendar appears in iPhone Calendar with the same events.
+- [ ] **Stop syncing / Disconnect:** events stay in both places; later changes no longer travel.
+- [ ] **Revoke the app-specific password** at account.apple.com: the Account page asks you to connect again.
+
 ## Child
 - [ ] **Chores:** mark a chore done. When it's reviewed and the app is in the background, a notification shows.
   Notifications only work over HTTPS or on localhost; turn them on in *Account*.

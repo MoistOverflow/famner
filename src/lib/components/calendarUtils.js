@@ -393,7 +393,7 @@ function unescapeText(v) {
   return v.replace(/\\([nN,;\\])/g, (_, c) => (c === 'n' || c === 'N' ? '\n' : c));
 }
 
-function parseLine(line) {
+export function parseLine(line) {
   let i = 0, inQuote = false;
   for (; i < line.length; i++) {
     const c = line[i];
@@ -410,7 +410,7 @@ function parseLine(line) {
   return { name: parts[0].toUpperCase(), params, value: line.slice(i + 1) };
 }
 
-function resolveZone(tzid) {
+export function resolveZone(tzid) {
   if (!tzid) return null;
   if (WINDOWS_ZONES[tzid]) return WINDOWS_ZONES[tzid];
   const m = tzid.match(/([A-Za-z_]+\/[A-Za-z_+-]+(?:\/[A-Za-z_+-]+)?)$/); // e.g. /mozilla.org/…/America/New_York
@@ -438,7 +438,7 @@ function zonedDate(y, mo, d, h, mi, s, zone) {
 }
 
 /** Parse a DATE or DATE-TIME value. Returns { date, allDay } or null. */
-function parseIcsDate(value, params = {}, warn = () => {}) {
+export function parseIcsDate(value, params = {}, warn = () => {}) {
   const v = value.trim();
   let m = v.match(/^(\d{4})(\d{2})(\d{2})$/);
   if (m || params.VALUE === 'DATE') {
@@ -651,12 +651,12 @@ export function splitSeries(ev, occ) {
 
 // ---------- .ics export ----------
 const ICS_DAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-const icsEscape = (s) => String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
-const icsDate = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
-const icsUtc = (d) => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+export const icsEscape = (s) => String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+export const icsDate = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+export const icsUtc = (d) => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
 /** Fold long lines at 75 bytes, as the iCalendar format requires. */
-function fold(line) {
+export function fold(line) {
   const bytes = new TextEncoder().encode(line);
   if (bytes.length <= 75) return line;
   const out = [];
@@ -670,7 +670,7 @@ function fold(line) {
   return out.join('\r\n ');
 }
 
-function rrule(ev) {
+export function rrule(ev) {
   const r = normalizeRepeat(ev.repeat, ev.start);
   if (!r) return null;
   const parts = [`FREQ=${r.freq.toUpperCase()}`];

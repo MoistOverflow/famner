@@ -34,6 +34,9 @@ The svelte config lives in **`vite.config.ts`**; there is no `svelte.config.js`.
   - `collections.js`: the grocery list (`list_items`).
   - `activity.js`: the admin activity log.
   - `backups.js`: daily `VACUUM INTO` backups. `reset.js`: factory reset, with a backup first.
+  - `icloud.js`: two-way sync of Famner calendars with iCloud (see below). `caldav.js` is the CalDAV
+    client it uses, and `secrets.js` encrypts the saved app-specific passwords (key in
+    `secret.key` next to the database, or `FAMNER_SECRET`).
 - **Live updates:** Server-Sent Events at `/api/…/live`. Every change bumps a revision number; a
   client that misses one reloads. Browsers send a client id so they can ignore their own echo.
 - **`src/lib/components/Calendar.svelte`:** the big calendar component. It handles the views,
@@ -44,6 +47,44 @@ The svelte config lives in **`vite.config.ts`**; there is no `svelte.config.js`.
 - **Offline:** `src/service-worker.js` keeps a copy of the app and of answers. It only runs over
   https or localhost. `src/lib/offline.svelte.js` holds the offline state, and
   `liveList.svelte.js` keeps grocery changes on the device until they can be sent.
+
+## Notifications (Web Push)
+
+- `src/lib/server/push.js` sends:
+  - "finished" to parents and admins, and "reviewed" to whoever did the chore (both through
+    `onChoreEvent` in chores.js);
+  - "due soon" from a 1-minute timer, sent once, tracked in `push_sent`;
+  - "groceries added", batched by `groceryBatcher`: 2 min after the last item, at most 10 min
+    after the first, never about your own items.
+- VAPID keys live in `push_keys`, unless `VAPID_*` is set. A subscription is tied to the device's
+  session, so signing out stops it; 404/410 answers delete it.
+- **Browser side:** `syncPush()` in `notify.js` runs on every app start and follows key changes and
+  who's signed in. `src/service-worker.js` shows each push. It must always show a notification, or
+  iOS drops the subscription.
+- Devices without push fall back to the app's own notifications in `+layout.svelte`, which are
+  skipped when `pushActive()`.
+- `tests/push.test.js` swaps the sender with `setSender`.
+
+## iCloud sync
+
+- Each person connects their own iCloud account on **Account**, using an Apple ID and an
+  app-specific password. They then link Famner calendars to iCloud calendars one to one; either
+  side can be made new.
+- `startICloudSync` (started from `hooks.server.js`) checks every `ICLOUD_SYNC_MINUTES` (default
+  5), and 4 s after a linked calendar changes in Famner. iCloud can't push changes to us.
+- **A sync is pull → apply → push.** If an event changed on both sides, the newer change wins
+  (iCloud's LAST-MODIFIED against `events.updated_at`). iCloud event files are *patched*, never
+  rebuilt, so alerts, invitees and other fields Famner doesn't show survive.
+  - `icloud_items` maps Famner events to iCloud files and stores a fingerprint of how each looked
+    after the last sync.
+  - `icloud_resources` keeps the last copy and etag of each iCloud file.
+- **Repeating events:** an occurrence edited in iCloud (RECURRENCE-ID) becomes a one-off Famner
+  event, with its date skipped in the series. Edits to it go back to the same occurrence. Moving
+  the whole series detaches those occurrences into their own events. Repeat rules Famner can't
+  show keep their RRULE untouched in iCloud.
+- Incoming changes are saved with `applyChanges(…, 'icloud')` and no user, so they're neither
+  role-checked nor logged.
+- `tests/fakeCaldav.js` is a pretend iCloud server; `tests/icloud.test.js` covers the sync.
 
 ## Rules that matter
 

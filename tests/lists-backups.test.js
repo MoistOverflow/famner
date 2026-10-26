@@ -26,6 +26,19 @@ test('groceries: everyone adds; children change only their own items', () => {
 	assert.equal(items().find((i) => i.id === 'milk').createdBy, mom.id);
 });
 
+test('groceries: live messages say which items are new (for notifications)', () => {
+	const seen = [];
+	const stop = L.subscribeList('groceries', (m) => seen.push(m));
+	put({ id: 'bread', name: 'Bread', done: false }, mom);
+	put({ id: 'bread', name: 'Bread', qty: 2, done: false }, mom);
+	stop();
+	assert.deepEqual(
+		seen.map((m) => m.added),
+		[['bread'], []]
+	);
+	assert.equal(seen[0].changes.upsert[0].createdBy, mom.id);
+});
+
 test('groceries: quantities and aisles are checked', () => {
 	for (const bad of [{ qty: 0 }, { qty: 2.5 }, { qty: 100 }, { aisle: 'Dairy!' }]) {
 		assert.throws(

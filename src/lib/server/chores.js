@@ -108,12 +108,21 @@ export function subscribeChores(fn) {
 export const choresRev = (db) => db.prepare("SELECT value FROM meta WHERE key = 'rev:chores'").get()?.value ?? 0;
 
 /** Run `fn` in a transaction, then bump the revision, log, and tell listeners. */
+// What happened, for notifications (push.js): { type: 'submitted', chore, by } or
+// { type: 'result', assignee, title, outcome, points, possible, reason, reviewer }. Sent after saving.
+const choreEvents = (globalThis.__choreEvents ??= new Set());
+export function onChoreEvent(fn) {
+  choreEvents.add(fn);
+  return () => choreEvents.delete(fn);
+}
+
 function change(db, actor, fn) {
   db.exec('BEGIN IMMEDIATE');
   let result, rev;
+  const events = [];
   try {
     const log = [];
-    result = fn(log);
+    result = fn(log, (e) => events.push(e));
     db.prepare("UPDATE meta SET value = value + 1 WHERE key = 'rev:chores'").run();
     rev = choresRev(db);
     logActivity(db, actor, 'chores', log);
@@ -124,6 +133,11 @@ function change(db, actor, fn) {
   }
   for (const l of listeners) {
     try { l({ rev }); } catch (err) { console.error('Chores live listener failed:', err); }
+  }
+  for (const e of events) {
+    for (const l of choreEvents) {
+      try { l(e); } catch (err) { console.error('Chore event listener failed:', err); }
+    }
   }
   return result;
 }
@@ -505,17 +519,19 @@ export function completeChore(db, actor, id, { ownOnly = false } = {}) {
   if (!adult && row.assignee !== actor.id) throw new ChoreForbidden('You can only finish your own chores.');
   if (!adult && row.status === 'submitted') throw new ChoreError('That’s already waiting for a parent to check.');
   const people = names(db);
-  return change(db, actor, (log) => {
+  return change(db, actor, (log, emit) => {
     const now = Date.now();
     const childChore = people.get(row.assignee)?.role === 'child';
     if (!adult) {
       db.prepare("UPDATE chores SET status = 'submitted', submitted_at = ?, updated_at = ? WHERE id = ?").run(now, now, row.id);
       log.push({ kind: 'chore.submitted', details: { title: row.title, late: now > row.due || undefined } });
+      emit({ type: 'submitted', chore: { id: row.id, title: row.title, assignee: row.assignee }, by: actor.id });
       return { status: 'submitted' };
     }
     const doneAt = row.status === 'submitted' ? row.submitted_at : now;
     const outcome = childChore ? 'approved' : 'done';
     finalize(db, row, { outcome, points: row.points, reviewer: actor.id, doneAt });
+    if (childChore) emit({ type: 'result', assignee: row.assignee, title: row.title, outcome, points: row.points, possible: row.points, reason: null, reviewer: actor.id });
     log.push({ kind: childChore ? 'chore.reviewed' : 'chore.done', details: {
       title: row.title, for: people.get(row.assignee)?.name, outcome, points: row.points, possible: row.points,
       self: row.assignee === actor.id || undefined
@@ -559,8 +575,9 @@ export function reviewChore(db, actor, id, { decision, points, reason }) {
     if (!why) throw new ChoreError('Say why it wasn’t accepted.');
   } else throw new ChoreError('Choose approve, change points or don’t accept.');
   const people = names(db);
-  change(db, actor, (log) => {
+  change(db, actor, (log, emit) => {
     finalize(db, row, { outcome, points: award, reason: why || null, reviewer: actor.id, doneAt: row.submitted_at });
+    emit({ type: 'result', assignee: row.assignee, title: row.title, outcome, points: award, possible: row.points, reason: why || null, reviewer: actor.id });
     log.push({ kind: 'chore.reviewed', details: {
       title: row.title, for: people.get(row.assignee)?.name, outcome, points: award, possible: row.points, reason: why || undefined
     } });

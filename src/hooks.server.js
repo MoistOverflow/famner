@@ -5,6 +5,7 @@
 //     PIN chosen (on /pin), except by kiosk accounts.
 //   • A kiosk is "unlocked" as one person by their PIN for a short while: event.locals.acting.
 //   • /admin is for admins only.
+//   • Starts the background jobs: daily backups, iCloud calendar sync and push notifications.
 //   • What each role may change (parents everything, children only what they added) is checked
 //     where the data is saved: calendarDb.js and collections.js.
 
@@ -14,6 +15,8 @@ import {
   authDb, validateSession, sessionCookieOptions, pruneSessions, userCount, touchKiosk, SESSION_COOKIE
 } from '$lib/server/auth.js';
 import { startBackupSchedule } from '$lib/server/backups.js';
+import { startICloudSync } from '$lib/server/icloud.js';
+import { startPush } from '$lib/server/push.js';
 
 import { closeAll } from '$lib/server/calendarDb.js';
 
@@ -35,6 +38,8 @@ export async function handle({ event, resolve }) {
   const dbPath = env.CALENDAR_DB || 'data/calendar.db';
   const db = authDb(dbPath);
   startBackupSchedule(db, dbPath); // daily automatic backups (starts once)
+  startICloudSync(dbPath); // calendars synced with iCloud (starts once)
+  startPush(dbPath); // notifications sent to phones (starts once)
   if (Date.now() - lastPrune > 3600000) { lastPrune = Date.now(); pruneSessions(db); }
 
   const token = event.cookies.get(SESSION_COOKIE);

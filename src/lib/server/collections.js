@@ -83,7 +83,8 @@ function describe(prev, next) {
 }
 
 /**
- * Save changes `{ upsert: [items], delete: [ids] }` to a list, log them, then broadcast them.
+ * Save changes `{ upsert: [items], delete: [ids] }` to a list, log them, then broadcast them
+ * (with `added`: the ids of items that didn't exist before).
  * New items are stamped with `createdBy` (the user's id), which never changes afterwards.
  * Children can add items but only change or delete ones they added themselves.
  */
@@ -98,6 +99,7 @@ export function applyListChanges(db, name, body, origin = null, user = null) {
     ON CONFLICT(list, id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`);
   const del = db.prepare('DELETE FROM list_items WHERE list = ? AND id = ?');
   let rev;
+  const added = []; // ids of items that are new (for "Mom added milk" notifications)
   db.exec('BEGIN IMMEDIATE');
   try {
     const log = [];
@@ -112,6 +114,7 @@ export function applyListChanges(db, name, body, origin = null, user = null) {
       } else if (user && (child || !item.createdBy)) {
         item.createdBy = user.id;
       }
+      if (!prev) added.push(item.id);
       const entry = describe(prev, item);
       if (entry) log.push(entry);
       return item;
@@ -137,7 +140,7 @@ export function applyListChanges(db, name, body, origin = null, user = null) {
     db.exec('ROLLBACK');
     throw err;
   }
-  const message = { rev, origin, changes };
+  const message = { rev, origin, changes, added };
   for (const fn of listeners.get(name) ?? []) {
     try { fn(message); } catch (err) { console.error('List live listener failed:', err); }
   }

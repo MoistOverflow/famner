@@ -9,6 +9,8 @@
 *.db-journal
 *.sqlite
 *.sqlite3
+# the key that encrypts saved iCloud passwords (made next to the database)
+secret.key
 # settings with real addresses, passwords or keys
 .env
 .env.*

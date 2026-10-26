@@ -4,7 +4,8 @@
   import { ui, setTheme } from '$lib/theme.svelte.js';
   import { ROLE_TEXT } from '$lib/roles.js';
   import { listen } from '$lib/liveStream.js';
-  import { notify, notificationsOn, registerServiceWorker } from '$lib/notify.js';
+  import { notify, notificationsOn, notificationsSupported, groceryAlertsOn, pushActive, syncPush, registerServiceWorker } from '$lib/notify.js';
+  import { itemText } from '$lib/groceryText.js';
   import { kiosk, syncKiosk, lockNow, touchKiosk, unlockFor } from '$lib/kiosk.svelte.js';
   import PinPad from '$lib/components/PinPad.svelte';
   import { net, watchNetwork, rememberUser, clearOfflineData } from '$lib/offline.svelte.js';
@@ -62,10 +63,12 @@
     denied: (r) => `${personName(r.reviewedBy)} didn’t accept “${r.title}”`
   };
 
+  // Devices with Web Push get these from the server (push.js), even when closed; the rest get them
+  // from the app itself, while it's open.
   let seen = null; // ids already known, so only new things notify
   function remindAbout(next) {
     const hidden = document.visibilityState !== 'visible';
-    if (seen && hidden) {
+    if (seen && hidden && !pushActive()) {
       for (const c of next.submitted) {
         if (!seen.has(`s:${c.id}:${c.at}`)) notify(`${personName(c.assignee)} finished “${c.title}”`, { body: 'Tap to review it.', url: '/chores/review', tag: `submitted-${c.id}` });
       }
@@ -77,7 +80,7 @@
   }
 
   function dueReminders() {
-    if (!summary || !notificationsOn()) return;
+    if (!summary || !notificationsOn() || pushActive()) return;
     const soon = Date.now() + 30 * 60000;
     for (const c of summary.mine) {
       if (c.status !== 'open' || c.due <= Date.now() || c.due > soon) continue;
@@ -85,6 +88,46 @@
       try { if (localStorage.getItem(key)) continue; localStorage.setItem(key, '1'); } catch {}
       notify(`“${c.title}” is due soon`, { body: `Due at ${new Date(c.due).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`, url: '/chores', tag: `due-${c.id}` });
     }
+  }
+
+  // ---------- "someone added groceries": one notification once they've stopped adding ----------
+  const GROCERY_QUIET = 2 * 60000; // wait until nothing new was added for this long…
+  const GROCERY_MAX = 10 * 60000;  // …but not longer than this after the first item
+  let groceryPending = new Map();  // id → item, added by someone else since the last notification
+  let groceryTimer = 0, groceryFirst = 0;
+  function groceriesChanged(msg) {
+    const added = new Set((msg.added ?? []).map(String));
+    let grew = false;
+    for (const item of msg.changes?.upsert ?? []) {
+      const id = String(item.id);
+      if (added.has(id)) {
+        if (item.createdBy !== userId && !item.done) { groceryPending.set(id, item); grew = true; }
+      } else if (groceryPending.has(id)) {
+        if (item.done) groceryPending.delete(id); // already bought: no need to tell anyone
+        else groceryPending.set(id, item);        // e.g. the quantity went up
+      }
+    }
+    for (const id of msg.changes?.delete ?? []) groceryPending.delete(String(id));
+    if (!groceryPending.size) { clearTimeout(groceryTimer); groceryFirst = 0; return; }
+    if (!grew) return;
+    groceryFirst ||= Date.now();
+    clearTimeout(groceryTimer);
+    groceryTimer = setTimeout(sendGroceryAlert, Math.max(0, Math.min(GROCERY_QUIET, groceryFirst + GROCERY_MAX - Date.now())));
+  }
+  function sendGroceryAlert() {
+    const items = [...groceryPending.values()];
+    groceryPending = new Map();
+    groceryFirst = 0;
+    if (!items.length || !groceryAlertsOn() || pushActive()) return;
+    if (document.visibilityState === 'visible' && page.url.pathname.startsWith('/groceries')) return; // looking at the list already
+    const who = [...new Set(items.map((i) => personName(i.createdBy)))];
+    const whoText = who.length < 3 ? who.join(' and ') : `${who.slice(0, -1).join(', ')} and ${who.at(-1)}`;
+    const names = items.map(itemText);
+    notify(items.length === 1 ? `${whoText} added ${names[0]} to Groceries` : `${whoText} added ${items.length} items to Groceries`, {
+      body: items.length === 1 ? '' : names.slice(0, 6).join(', ') + (names.length > 6 ? `, and ${names.length - 6} more` : ''),
+      url: '/groceries',
+      tag: 'groceries-added'
+    });
   }
 
   // (keyed on the id, so moving between pages doesn't reconnect)
@@ -106,9 +149,15 @@
     };
     load();
     registerServiceWorker();
+    if (notificationsOn()) syncPush(); // keeps this device's push subscription with whoever is signed in
     const stop = listen('/api/chores/live', { onChange: load, onHello: load });
+    // grocery alerts (only where this device can show notifications at all)
+    const stopGroceries = notificationsSupported() ? listen('/api/lists/groceries/live', { onChange: groceriesChanged }) : () => {};
     const t = setInterval(() => { clock = Date.now(); dueReminders(); }, 60000);
-    return () => { alive = false; stop(); clearInterval(t); };
+    return () => {
+      alive = false; stop(); stopGroceries(); clearInterval(t);
+      clearTimeout(groceryTimer); groceryPending = new Map(); groceryFirst = 0;
+    };
   });
 
   // close the account menu on navigation, outside clicks and Escape
@@ -386,11 +435,11 @@
   :global(.ui-field.ui-grow) { flex: 1; }
   :global(.ui-field > span) { font-size: 12px; font-weight: 600; color: var(--app-muted); }
   :global(.ui-field small) { font-size: 12px; color: var(--app-muted); }
-  :global(.ui-field input) {
+  :global(.ui-field input), :global(.ui-field select) {
     padding: 10px 12px; border-radius: 8px; border: 1px solid var(--app-line); background: var(--app-bg);
     color: var(--app-text); font: inherit; font-size: 16px;
   }
-  :global(.ui-field input:focus) { outline: 2px solid var(--app-accent); outline-offset: -1px; border-color: transparent; }
+  :global(.ui-field input:focus), :global(.ui-field select:focus) { outline: 2px solid var(--app-accent); outline-offset: -1px; border-color: transparent; }
   :global(.ui-btn) {
     padding: 9px 14px; border-radius: 8px; border: 1px solid var(--app-line); background: none; cursor: pointer;
     color: var(--app-text); font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap;

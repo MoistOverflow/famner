@@ -24,12 +24,25 @@ Or with Compose: edit `docker-compose.yml` (ORIGIN, TZ), then `docker compose up
 | Variable | Default | What it's for |
 |---|---|---|
 | `ORIGIN` | *(required)* | The exact address people type in the browser, e.g. `http://192.168.1.20:3000` or `https://famner.example.com`. If it's wrong, signing in and saving forms fail with “Cross-site POST form submissions are forbidden”. |
-| `TZ` | `UTC` | The household's time zone (e.g. `America/New_York`): used for repeating chores and backup times. |
+| `TZ` | `UTC` | The household's time zone (e.g. `America/New_York`): used for repeating chores, backup times, and the times of events synced with iCloud. |
 | `PORT` | `3000` | Port inside the container. |
 | `ADDRESS_HEADER` | *(unset)* | Behind a reverse proxy, set to `X-Real-IP`. Then too many wrong passwords only slow down that device, not everyone. |
 | `CALENDAR_DB` | `/data/calendar.db` | Where the database is. |
 | `BACKUP_DIR` | `/data/backups` | Where backups go. Point it at another mounted disk to protect against the disk failing. |
 | `BODY_SIZE_LIMIT` | `2M` | Largest upload (e.g. importing a big .ics file). |
+| `ICLOUD_SYNC_MINUTES` | `5` | How often calendars synced with iCloud are checked for changes made on Apple devices. |
+| `PUSH_CONTACT` | `ORIGIN` | Who runs this server, for the push services (Apple, Google…): your `https://` address or `mailto:you@example.com`. Apple refuses notifications without a valid one, so set it if `ORIGIN` isn't https. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | *(made for you)* | Optional. The keys that sign push notifications. Without them they're made once and kept in the database. If they change, devices subscribe again by themselves the next time they open Famner. |
+| `FAMNER_SECRET` | *(unset)* | Optional. Long random text used to encrypt saved iCloud passwords. Without it, a key is made in `/data/secret.key`. |
+
+## Notifications on phones (Web Push)
+
+With HTTPS through nginx, turning on reminders (**Account**) subscribes the device to Web Push. The
+server then sends reminders even when Famner is closed: chores finished, reviewed and due soon, and
+groceries added. The container needs to reach the internet: notifications go out through Apple's,
+Google's or Mozilla's push service. Nothing else needs to be open, and nginx needs no changes.
+On an iPhone or iPad, add Famner to the Home Screen first, then turn reminders on from the app
+there (iOS 16.4 or later).
 
 ## Behind nginx (HTTPS)
 
@@ -70,6 +83,11 @@ docker start famner
 ```
 
 (Put the backup file in the folder you run this from.)
+
+**iCloud passwords and backups:** the app-specific passwords people saved for iCloud sync are encrypted
+with the key in `/data/secret.key` (or `FAMNER_SECRET`). Backups don't include that key. Restoring on the
+same volume keeps it; on a new machine, copy `secret.key` across too, or everyone reconnects iCloud on
+their Account page.
 
 ## Using a folder instead of a named volume
 

@@ -15,7 +15,7 @@ import { build, files, version } from '$service-worker';
 const SHELL = `famner-shell-${version}`;
 const DATA = 'famner-data';
 const ASSETS = new Set([...build, ...files]);
-const NEVER = [/\/live$/, /^\/api\/kiosk/, /^\/api\/ics/, /^\/admin\/backups\//, /^\/logout/];
+const NEVER = [/\/live$/, /^\/api\/kiosk/, /^\/api\/ics/, /^\/api\/push/, /^\/admin\/backups\//, /^\/logout/];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL).then((c) => c.addAll([...ASSETS])).then(() => self.skipWaiting()));
@@ -81,6 +81,30 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'clear-data') event.waitUntil(caches.delete(DATA));
 });
+
+// Web Push (see $lib/server/push.js): show it, even when Famner is closed. Every push must show
+// something, or iPhones stop delivering them.
+self.addEventListener('push', (event) => {
+  let m = {};
+  try { m = event.data?.json() ?? {}; } catch { m = { title: event.data?.text() }; }
+  event.waitUntil(self.registration.showNotification(m.title || 'Famner', {
+    body: m.body || '', tag: m.tag, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', data: { url: m.url || '/' }
+  }));
+});
+
+// the browser replaced the subscription: send the new one (the server keeps it for whoever is signed in)
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    const { publicKey } = await (await fetch('/api/push', { cache: 'no-store' })).json();
+    const sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
+    await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON() }) });
+  })().catch(() => {}));
+});
+
+function keyBytes(base64url) {
+  const s = atob((base64url + '='.repeat((4 - (base64url.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(s, (c) => c.charCodeAt(0));
+}
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

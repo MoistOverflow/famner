@@ -235,7 +235,9 @@ export function applyChanges(db, body, origin = null, user = null) {
   const delEv = db.prepare('DELETE FROM events WHERE id = ?');
   const getEvent = db.prepare('SELECT data FROM events WHERE id = ?');
 
-  db.exec('BEGIN IMMEDIATE');
+  // inside a caller's transaction (e.g. the iCloud sync saving its own records too), use a savepoint
+  const nested = db.inTransaction;
+  db.exec(nested ? 'SAVEPOINT apply_changes' : 'BEGIN IMMEDIATE');
   try {
     const existing = new Map(db.prepare('SELECT id, data FROM calendars').all().map((r) => [r.id, JSON.parse(r.data)]));
     const before = new Map([...existing].filter(([, c]) => c.private).map(([id, c]) => [id, access(c)]));
@@ -419,7 +421,7 @@ export function applyChanges(db, body, origin = null, user = null) {
     db.prepare("UPDATE meta SET value = value + 1 WHERE key = 'rev'").run();
     rev = currentRev(db);
     logActivity(db, user, 'calendar', log);
-    db.exec('COMMIT');
+    db.exec(nested ? 'RELEASE apply_changes' : 'COMMIT');
     privacy = {
       before: Object.fromEntries(before),
       after: Object.fromEntries(after),
@@ -427,7 +429,7 @@ export function applyChanges(db, body, origin = null, user = null) {
       eventCals
     };
   } catch (err) {
-    db.exec('ROLLBACK');
+    db.exec(nested ? 'ROLLBACK TO apply_changes; RELEASE apply_changes' : 'ROLLBACK');
     throw err;
   }
 
