@@ -35,3 +35,12 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# ---------- Claude Code ----------
+# your personal settings and notes (CLAUDE.md itself is shared and stays in git)
+.claude/settings.local.json
+CLAUDE.local.md
+
+# ---------- tests ----------
+# coverage reports (npm test -- --experimental-test-coverage); test databases go to the system temp folder
+/coverage/
