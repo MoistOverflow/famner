@@ -117,5 +117,5 @@
   :global(.chores-page .chip.bad) { background: color-mix(in srgb, #e5484d 20%, transparent); color: var(--app-text); }
   :global(.chores-page .chip.wait) { background: color-mix(in srgb, var(--app-accent) 20%, transparent); color: var(--app-text); }
   :global(.chores-page .pts) { font-weight: 700; color: #d97706; white-space: nowrap; }
-  :global(:root[data-theme='dark'] .chores-page .pts) { color: #fbbf24; }
+  :global(:root:is([data-theme='dark'], [data-theme='oled']) .chores-page .pts) { color: #fbbf24; }
 </style>

@@ -455,14 +455,14 @@
   .done .name { padding: 10px 4px; }
 
   .toast {
-    position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 200;
+    position: fixed; left: 50%; bottom: calc(20px + var(--app-bottom-space, env(safe-area-inset-bottom, 0px))); /* above the tab bar on phones */ transform: translateX(-50%); z-index: 200;
     display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px);
     padding: 10px 10px 10px 16px; border-radius: 10px;
     background: var(--app-text); color: var(--app-bg); box-shadow: 0 8px 28px rgb(0 0 0 / 0.3);
   }
   .toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .toast button { font-weight: 700; padding: 4px 8px; border-radius: 6px; color: #93c5fd; } /* on the dark toast */
-  :global(:root[data-theme='dark']) .toast button { color: #1d4ed8; }            /* on the light toast */
+  :global(:root:is([data-theme='dark'], [data-theme='oled'])) .toast button { color: #1d4ed8; }            /* on the light toast */
   .toast .x { font-size: 18px; line-height: 1; color: inherit; opacity: 0.7; font-weight: 400; }
 
   button:focus-visible, input:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }

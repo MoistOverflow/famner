@@ -2,6 +2,7 @@
   import { clearOfflineData } from '$lib/offline.svelte.js';
   import { enhance } from '$app/forms';
   import { ROLE_TEXT } from '$lib/roles.js';
+  import { ui, setTheme, THEMES } from '$lib/theme.svelte.js';
   import { onMount } from 'svelte';
   import {
     notificationsSupported, notificationsOn, enableNotifications, disableNotifications, notify, groceryAlertsOn, setGroceryAlerts,
@@ -35,6 +36,13 @@
   }
 
   let { data, form } = $props();
+
+  // theme: saved to the account, so every device this person uses follows it
+  let themeNote = $state('');
+  async function chooseTheme(id) {
+    themeNote = '';
+    if (!(await setTheme(id))) themeNote = 'Changed on this device; it couldn’t be saved to your account just now.';
+  }
   const user = $derived(data.user);
   const forced = $derived(user.mustChangePassword);
   const msg = (action) => (form?.action === action ? form : null);
@@ -85,6 +93,22 @@
       </form>
       {#if msg('rename')?.error}<p class="ui-error">{msg('rename').error}</p>{/if}
       {#if msg('rename')?.message}<p class="ui-ok">{msg('rename').message}</p>{/if}
+    </section>
+  {/if}
+
+  {#if !forced}
+    <section class="ui-card">
+      <h2>Appearance</h2>
+      <div class="themes" role="radiogroup" aria-label="Theme">
+        {#each THEMES as t (t.id)}
+          <button type="button" role="radio" aria-checked={ui.theme === t.id} class="theme-opt" class:on={ui.theme === t.id} onclick={() => chooseTheme(t.id)}>
+            <span class="swatch {t.id}" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span>{t.label}</span>
+          </button>
+        {/each}
+      </div>
+      <p class="ui-hint">{ui.theme === 'oled' ? 'Pure black: easiest on the battery and the eyes at night on phones with OLED screens.' : 'Used on every device you sign in on.'}</p>
+      {#if themeNote}<p class="ui-hint">{themeNote}</p>{/if}
     </section>
   {/if}
 
@@ -289,4 +313,20 @@
   .sync-name { overflow-wrap: anywhere; }
   .sync-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .themes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .theme-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 6px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--app-line); background: none; color: var(--app-text); font: inherit; font-size: 13px; font-weight: 500;
+  }
+  .theme-opt.on { border-color: var(--app-accent); box-shadow: 0 0 0 1px var(--app-accent); }
+  .theme-opt:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+  /* a tiny picture of each theme: page, card and accent */
+  .swatch { position: relative; width: 100%; max-width: 92px; aspect-ratio: 16 / 10; border-radius: 6px; overflow: hidden; border: 1px solid var(--app-line); }
+  .swatch i { position: absolute; display: block; border-radius: 3px; }
+  .swatch i:nth-child(1) { left: 0; right: 0; top: 0; height: 22%; border-radius: 0; }
+  .swatch i:nth-child(2) { left: 12%; right: 12%; top: 34%; height: 40%; }
+  .swatch i:nth-child(3) { left: 18%; width: 30%; top: 44%; height: 12%; }
+  .swatch.light { background: #f4f5f7; } .swatch.light i:nth-child(-n + 2) { background: #fff; } .swatch.light i:nth-child(3) { background: #3b82f6; }
+  .swatch.dark { background: #16181d; } .swatch.dark i:nth-child(-n + 2) { background: #1f2128; } .swatch.dark i:nth-child(3) { background: #60a5fa; }
+  .swatch.oled { background: #000; } .swatch.oled i:nth-child(-n + 2) { background: #000; border: 1px solid #26272b; } .swatch.oled i:nth-child(3) { background: #60a5fa; border: 0; }
 </style>

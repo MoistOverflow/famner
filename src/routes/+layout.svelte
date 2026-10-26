@@ -1,7 +1,7 @@
 <script>
   import { page } from '$app/state';
   import { untrack } from 'svelte';
-  import { ui, setTheme } from '$lib/theme.svelte.js';
+  import { ui, setTheme, followAccount, isDark, THEMES } from '$lib/theme.svelte.js';
   import { ROLE_TEXT } from '$lib/roles.js';
   import { listen } from '$lib/liveStream.js';
   import { notify, notificationsOn, notificationsSupported, groceryAlertsOn, pushActive, syncPush, registerServiceWorker } from '$lib/notify.js';
@@ -200,12 +200,16 @@
     return () => { window.removeEventListener('resize', measure); window.removeEventListener('orientationchange', measure); };
   });
 
+  // the theme is an account setting (Account page): use it on every device this person signs in on
+  $effect(() => { const t = user?.theme; untrack(() => followAccount(t)); });
+
   // page background, scrollbars and form controls follow the theme
   $effect(() => {
     document.documentElement.dataset.theme = ui.theme;
-    document.documentElement.style.colorScheme = ui.theme;
+    document.documentElement.style.colorScheme = isDark(ui.theme) ? 'dark' : 'light';
     // the phone's status bar / browser bar colour matches the top bar
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', ui.theme === 'dark' ? '#1f2128' : '#ffffff');
+    const bar = { light: '#ffffff', dark: '#1f2128', oled: '#000000' }[ui.theme] ?? '#1f2128';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bar);
   });
 </script>
 
@@ -241,20 +245,6 @@
       {/each}
     </ul>
 
-    <button
-      class="theme-toggle"
-      onclick={() => setTheme(ui.theme === 'dark' ? 'light' : 'dark')}
-      aria-label={ui.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      title={ui.theme === 'dark' ? 'Light mode' : 'Dark mode'}
-    >
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        {#if ui.theme === 'dark'}
-          <path d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.7-5.7l1.4-1.4M4.9 19.1l1.4-1.4m0-11.4L4.9 4.9m14.2 14.2l-1.4-1.4M12 17a5 5 0 100-10 5 5 0 000 10z" />
-        {:else}
-          <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />
-        {/if}
-      </svg>
-    </button>
 
     <div class="account" bind:this={menuEl}>
       <button
@@ -272,9 +262,14 @@
           </div>
           {#if user.role !== 'kiosk'}<a role="menuitem" href="/account">Account</a>{/if}
           <a role="menuitem" href="/today">Today (wall view)</a>
-          <button class="menu-theme" role="menuitem" type="button" onclick={() => setTheme(ui.theme === 'dark' ? 'light' : 'dark')}>
-            {ui.theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          </button>
+          {#if user.role === 'kiosk'}
+            <!-- the shared tablet has no Account page: its theme is chosen here -->
+            <div class="menu-themes" role="group" aria-label="Theme">
+              {#each THEMES as t (t.id)}
+                <button type="button" role="menuitemradio" aria-checked={ui.theme === t.id} class:on={ui.theme === t.id} onclick={() => setTheme(t.id)}>{t.label}</button>
+              {/each}
+            </div>
+          {/if}
           {#if user.role === 'admin' && !user.mustChangePassword}<a role="menuitem" href="/admin">Manage</a>{/if}
           <form method="POST" action="/logout" onsubmit={clearOfflineData}>
             <button role="menuitem" type="submit">Sign out</button>
@@ -338,6 +333,16 @@
     --app-hover: #2e313a;
     --app-accent: #60a5fa;
   }
+  /* OLED black: true black (pixels off on OLED screens), with just enough contrast for edges */
+  :global(:root[data-theme='oled']) {
+    --app-bg: #000000;
+    --app-surface: #000000;
+    --app-text: #e8e8ea;
+    --app-muted: #8b8d94;
+    --app-line: #26272b;
+    --app-hover: #16171a;
+    --app-accent: #60a5fa;
+  }
   :global(:root[data-theme='light']) {
     --app-bg: #f4f5f7;
     --app-surface: #ffffff;
@@ -387,18 +392,10 @@
     min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; box-sizing: border-box;
     display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: #e5484d;
   }
-  @media (max-width: 380px) {
-    .nav-badge { position: absolute; top: 2px; right: 2px; }
-  }
-  .links svg, .theme-toggle svg {
+  .links svg {
     fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0;
   }
-  .theme-toggle {
-    display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px;
-    border: 0; background: none; color: var(--app-muted); cursor: pointer;
-  }
-  .theme-toggle:hover { color: var(--app-text); background: var(--app-hover); }
-  a:focus-visible, .theme-toggle:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
 
   /* account menu */
   .account { position: relative; }
@@ -458,17 +455,34 @@
   :global(.ui-hint) { margin: 0; font-size: 13px; color: var(--app-muted); }
 
   @media (max-width: 560px) {
-    .topnav { gap: 8px; padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
-    .brand span { display: none; }
-    .links { justify-content: center; }
-    .links a { padding: 0 10px; gap: 6px; font-size: 13px; }
-    .links { min-width: 0; }
-    .theme-toggle { display: none; } /* it's in the account menu on phones */
+    .topnav { gap: 8px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+    .account { margin-left: auto; }
+
+    /* phones: the pages are tabs along the bottom, within reach of a thumb. Like the top bar it's
+       fixed, full width and one solid colour, and it keeps clear of the home indicator. Pages
+       (and the calendar, which fills the screen) leave room for it through --app-bottom-space. */
+    :global(:root:has(.app.has-nav .links li)) { --app-bottom-space: calc(56px + env(safe-area-inset-bottom, 0px)); }
+    .app.has-nav { padding-bottom: var(--app-bottom-space, 0px); }
+    .links {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+      display: flex; gap: 0; box-sizing: border-box; height: var(--app-bottom-space, 56px);
+      padding: 3px max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px));
+      background: var(--app-surface); border-top: 1px solid var(--app-line);
+    }
+    .links:not(:has(li)) { display: none; } /* no tabs yet (choosing a new password) */
+    .links li { flex: 1; display: flex; min-width: 0; }
+    .links a {
+      flex: 1; flex-direction: column; justify-content: center; gap: 3px; height: 50px; padding: 0;
+      font-size: 10.5px; font-weight: 600; border-radius: 10px;
+    }
+    .links a svg { width: 24px; height: 24px; }
+    .links a:hover, .links a.active { background: none; }
+    .links a.active { color: var(--app-accent); }
+    .nav-badge { position: absolute; top: 2px; left: calc(50% + 6px); }
+    /* while typing, the keyboard would push the bar up over what's being typed */
+    :global(body:has(:is(input, textarea, select):focus)) .links { display: none; }
   }
-  .menu .menu-theme { display: none; }
-  @media (max-width: 560px) { .menu .menu-theme { display: block; } }
-  @media (max-width: 380px) {
-    .links a span { display: none; } /* icons only on very narrow phones */
-    .links a { padding: 0 14px; }
-  }
+  .menu-themes { display: flex; gap: 4px; padding: 4px 6px; }
+  .menu .menu-themes button { flex: 1; padding: 6px 4px; text-align: center; font-size: 12px; border: 1px solid var(--app-line); }
+  .menu .menu-themes button.on { border-color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 18%, transparent); }
 </style>

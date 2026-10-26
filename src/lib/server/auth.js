@@ -63,6 +63,7 @@ export function authDb(path) {
     if (!u.has('pin_hash')) db.exec('ALTER TABLE users ADD COLUMN pin_hash TEXT');
     if (!u.has('pin_fails')) db.exec('ALTER TABLE users ADD COLUMN pin_fails INTEGER NOT NULL DEFAULT 0');
     if (!u.has('pin_locked_until')) db.exec('ALTER TABLE users ADD COLUMN pin_locked_until INTEGER');
+    if (!u.has('theme')) db.exec('ALTER TABLE users ADD COLUMN theme TEXT'); // light, dark or oled (null: dark)
     if (!se.has('acting_as')) db.exec('ALTER TABLE sessions ADD COLUMN acting_as TEXT');
     if (!se.has('acting_until')) db.exec('ALTER TABLE sessions ADD COLUMN acting_until INTEGER');
     prepared.add(db);
@@ -138,7 +139,8 @@ export function publicUser(row) {
     name: row.name,
     role: row.role,
     mustChangePassword: !!row.must_change_password,
-    needsPin: row.role !== 'kiosk' && !row.pin_hash
+    needsPin: row.role !== 'kiosk' && !row.pin_hash,
+    theme: THEMES.includes(row.theme) ? row.theme : null
   };
 }
 
@@ -255,6 +257,13 @@ export function deleteUser(db, actor, id) {
   db.prepare('DELETE FROM users WHERE id = ?').run(id);
   logActivity(db, actor, 'accounts', [{ kind: 'account.removed', details: { name: row.name, privateCalendars: removedCalendars || undefined } }]);
   return { username: row.username, removedCalendars };
+}
+
+/** The app's look, chosen per person and used on every device they sign in on. */
+export const THEMES = ['light', 'dark', 'oled'];
+export function setOwnTheme(db, userId, theme) {
+  if (!THEMES.includes(theme)) throw new AuthError('Pick light, dark or OLED black.');
+  db.prepare('UPDATE users SET theme = ? WHERE id = ?').run(theme, userId);
 }
 
 /** The signed-in user changes their own name. */

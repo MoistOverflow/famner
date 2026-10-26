@@ -99,3 +99,11 @@ test('an admin can reset a PIN; the person chooses a new one', async () => {
 	A.resetPin(db, dad, sam.id);
 	assert.match((await A.verifyPin(db, sam.id, '2580')).error, /hasn’t chosen a PIN/);
 });
+
+test('the theme is saved on the account', () => {
+	const row = () => db.prepare('SELECT * FROM users WHERE id = ?').get(mom.id);
+	assert.equal(A.publicUser(row()).theme, null, 'not chosen yet: the app uses dark');
+	A.setOwnTheme(db, mom.id, 'oled');
+	assert.equal(A.publicUser(row()).theme, 'oled');
+	assert.throws(() => A.setOwnTheme(db, mom.id, 'neon'), A.AuthError);
+});

@@ -49,7 +49,7 @@
     bottomOffset   gap in px kept below the calendar when fitting (default 16)
     snap           click/drag precision in minutes (default 15); the editor allows any minute
     weekStartsOn   0 = Sunday, 1 = Monday, … (default 0)
-    theme          'light' | 'dark' (default 'dark')
+    theme          'light' | 'dark' | 'oled' (pure black; default 'dark')
     onEventClick, onEventAdd, onEventUpdate, onEventDelete (event)
     onCalendarAdd, onCalendarUpdate (calendar), onCalendarDelete (calendar, removedEvents)
     onCalendarReorder(calendars)   after the user drags calendars into a new order
@@ -80,7 +80,8 @@
   function safeBottom() {
     if (typeof document === 'undefined') return 0;
     const probe = document.createElement('div');
-    probe.style.cssText = 'position:fixed;visibility:hidden;padding-bottom:env(safe-area-inset-bottom,0px)';
+    // the app's bottom tab bar (phones) if it has one, otherwise just the phone's home-indicator area
+    probe.style.cssText = 'position:fixed;visibility:hidden;padding-bottom:var(--app-bottom-space,env(safe-area-inset-bottom,0px))';
     document.body.append(probe);
     const px = parseFloat(getComputedStyle(probe).paddingBottom) || 0; // changes when the phone turns
     probe.remove();
@@ -1883,7 +1884,8 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="cal"
-  class:dark={theme === 'dark'}
+  class:dark={theme === 'dark' || theme === 'oled'}
+  class:oled={theme === 'oled'}
   role="region"
   aria-label="Calendar"
   bind:this={root}
@@ -2640,6 +2642,17 @@
     --today: #ff5a4f;
     --accent-soft: #2a3a55;
     color-scheme: dark;
+  }
+  /* OLED black: true black, edges just visible */
+  .cal.dark.oled {
+    --bg: #000000;
+    --bg-alt: #0b0b0d;
+    --weekend: #000000;
+    --line: #26272b;
+    --hover: #16171a;
+    --text: #e8e8ea;
+    --muted: #8b8d94;
+    --accent-soft: #10223d;
   }
 
   /* padding must not add to the heights computed from times (hour rows, event blocks) */
