@@ -298,7 +298,10 @@
     --app-hover: #eef0f4;
     --app-accent: #3b82f6;
   }
-  :global(html) { background: var(--app-bg); }
+  /* no rubber-band dragging of the whole page (iPhone), and never sideways: scrolling inside the
+     calendar, lists etc. stays inside them; long pages still scroll normally */
+  :global(html) { background: var(--app-bg); overscroll-behavior: none; overflow-x: clip; }
+  :global(body) { overscroll-behavior: none; overflow-x: clip; }
   :global(body) {
     margin: 0;
     background: var(--app-bg);

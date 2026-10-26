@@ -2676,7 +2676,7 @@
   /* sidebar */
   .sidebar {
     width: 240px; flex-shrink: 0; display: flex; flex-direction: column;
-    gap: 20px; padding: 12px; overflow-y: auto;
+    gap: 20px; padding: 12px; overflow-y: auto; overscroll-behavior: contain;
     border-right: 1px solid var(--line); background: var(--bg-alt);
   }
   .sidebar.drawer {
@@ -2783,7 +2783,7 @@
   .col-head:hover { background: var(--hover); }
   .col-head.today { color: var(--accent); font-weight: 700; }
 
-  .strip-row { border-bottom: 1px solid var(--line); max-height: 100px; overflow-y: auto; flex-shrink: 0; }
+  .strip-row { border-bottom: 1px solid var(--line); max-height: 100px; overflow-y: auto; flex-shrink: 0; overscroll-behavior: contain; }
   .strip-label { padding: 6px 8px 0 0; font-size: 11px; color: var(--muted); text-align: right; }
   .strip {
     grid-column: 2 / -1; display: grid; position: relative;
@@ -2805,7 +2805,8 @@
   .bar.dragging { opacity: 0.75; box-shadow: 0 4px 12px rgb(0 0 0 / 0.25); }
 
   .scroll-wrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
-  .scroll { flex: 1; overflow-y: auto; scrollbar-gutter: stable; }
+  /* the time grid scrolls up and down only, and at its top/bottom the page doesn't take over */
+  .scroll { flex: 1; overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain; touch-action: pan-y pinch-zoom; }
   .offscreen {
     position: absolute; left: 50%; transform: translateX(-50%); z-index: 5;
     padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
