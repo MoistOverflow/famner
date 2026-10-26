@@ -21,7 +21,8 @@ export const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
 export const dayDiff = (a, b) => Math.round((startOfDay(b) - startOfDay(a)) / DAY_MS);
 export const monthDiff = (a, b) => (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
 export const minOfDay = (d) => d.getHours() * 60 + d.getMinutes();
-export const atMinute = (day, min) => addMinutes(startOfDay(day), min);
+// on the clock, not elapsed time: on the day the clocks change, 5:00 AM is still 5:00 AM
+export const atMinute = (day, min) => { const x = startOfDay(day); x.setHours(0, min, 0, 0); return x; };
 
 export const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const parseYmd = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -315,7 +316,8 @@ export function occurrencesOnDay(occs, day) {
  * `dayDelta` calendar days plus `minDelta` minutes. Skipped dates move with it.
  */
 export function shiftEvent(ev, dayDelta, minDelta) {
-  const move = (d) => addMinutes(addDays(d, dayDelta), minDelta);
+  // minutes on the clock, so a move across a daylight-saving change keeps the times you see
+  const move = (d) => { const x = addDays(d, dayDelta); x.setMinutes(x.getMinutes() + minDelta); return x; };
   const next = { ...ev, start: move(ev.start), end: move(ev.end) };
   if (ev.exdates?.length && dayDelta) next.exdates = ev.exdates.map((s) => ymd(addDays(parseYmd(s), dayDelta)));
   // a weekly series moved to other days keeps the same pattern, e.g. Mon/Wed → Tue/Thu

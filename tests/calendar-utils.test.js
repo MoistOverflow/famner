@@ -4,11 +4,13 @@ import assert from 'node:assert/strict';
 import {
 	expandEvents,
 	ymd,
+	atMinute,
 	splitSeries,
 	detachOccurrence,
 	toICS,
 	parseICS,
-	shiftEvent
+	shiftEvent,
+	deltaBetween
 } from '../src/lib/components/calendarUtils.js';
 import { parseItem, guessAisle } from '../src/lib/groceryText.js';
 
@@ -136,4 +138,33 @@ test('grocery aisles are guessed from the name', () => {
 		thing: 'other'
 	};
 	for (const [name, aisle] of Object.entries(cases)) assert.equal(guessAisle(name), aisle, name);
+});
+
+test('on the days the clocks change, times stay what you typed', () => {
+	const hm = (x) => `${x.getHours()}:${String(x.getMinutes()).padStart(2, '0')}`;
+	// Nov 1, 2026: 1 AM happens twice; Mar 8, 2026: 2 AM is skipped
+	assert.equal(hm(atMinute(d('2026-11-01T00:00'), 5 * 60)), '5:00');
+	assert.equal(hm(atMinute(d('2026-11-01T00:00'), 23 * 60 + 30)), '23:30');
+	assert.equal(hm(atMinute(d('2026-03-08T00:00'), 9 * 60)), '9:00');
+	assert.equal(
+		ymd(atMinute(d('2026-11-01T00:00'), 24 * 60)),
+		'2026-11-02',
+		'midnight at the end of the day'
+	);
+	// dragging an event from 12:30 AM to 3:00 AM that night
+	const ev = { id: 'x', start: d('2026-11-01T00:30'), end: d('2026-11-01T01:30') };
+	const { dayDelta, minDelta } = deltaBetween(ev.start, d('2026-11-01T03:00'));
+	const moved = shiftEvent(ev, dayDelta, minDelta);
+	assert.deepEqual([hm(moved.start), hm(moved.end)], ['3:00', '4:00']);
+	// a weekly 5 AM event keeps 5 AM on the Sunday the clocks go back
+	const weekly = {
+		id: 'w',
+		start: d('2026-10-25T05:00'),
+		end: d('2026-10-25T06:00'),
+		repeat: { freq: 'weekly', byWeekday: [0], count: 3 }
+	};
+	assert.deepEqual(
+		expandEvents([weekly], d('2026-10-01'), d('2026-12-01')).map((o) => hm(o.start)),
+		['5:00', '5:00', '5:00']
+	);
 });
