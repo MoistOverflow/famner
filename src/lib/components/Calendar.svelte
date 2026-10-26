@@ -712,7 +712,7 @@
     if (e.pointerType === 'mouse') e.preventDefault();
     const col = e.currentTarget.closest('.day-col');
     const resize = !!e.target.closest('.resize-handle');
-    const origS = (+seg.occ.start - +startOfDay(day)) / 60000;
+    const origS = dayDiff(day, seg.occ.start) * 1440 + minOfDay(seg.occ.start); // on the clock, like the grid
     beginGesture(e, {
       kind: resize ? 'resize' : 'move',
       occ: seg.occ, day, col,

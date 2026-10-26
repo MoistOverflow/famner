@@ -223,8 +223,8 @@ export function expandEvents(events, rangeStart, rangeEnd, isVisible = () => tru
  */
 export function layoutTimedDay(occs, day, winStart = 0, winEnd = 1440) {
   const d0 = startOfDay(day);
-  const lo = +addMinutes(d0, winStart);
-  const hi = +addMinutes(d0, winEnd);
+  const lo = +atMinute(d0, winStart);
+  const hi = +atMinute(d0, winEnd);
   const items = occs
     .filter((o) => !isLong(o) && o.start < hi && o.end > lo)
     .map((o) => ({ occ: o, s: Math.max(+o.start, lo), e: Math.min(+o.end, hi) }))
@@ -248,10 +248,14 @@ export function layoutTimedDay(occs, day, winStart = 0, winEnd = 1440) {
   flush();
 
   const dayEnd = +addDays(d0, 1);
+  // minutes on the clock (not elapsed since midnight), so blocks sit at the times they show,
+  // also on the days the clocks change
+  const clock = (t) => (t >= dayEnd ? 1440 : minOfDay(new Date(t)));
   return out.map((it) => ({
     occ: it.occ,
-    sMin: (it.s - +d0) / 60000,
-    eMin: (it.e - +d0) / 60000,
+    sMin: clock(it.s),
+    // in the hour that happens twice, the clock can go backwards: keep the real length then
+    eMin: Math.max(clock(it.e), clock(it.s) + (clock(it.e) > clock(it.s) ? 0 : (it.e - it.s) / 60000)),
     col: it.col,
     cols: it.cols,
     isStart: +it.occ.start >= +d0,

@@ -5,6 +5,7 @@ import {
 	expandEvents,
 	ymd,
 	atMinute,
+	layoutTimedDay,
 	splitSeries,
 	detachOccurrence,
 	toICS,
@@ -167,4 +168,18 @@ test('on the days the clocks change, times stay what you typed', () => {
 		expandEvents([weekly], d('2026-10-01'), d('2026-12-01')).map((o) => hm(o.start)),
 		['5:00', '5:00', '5:00']
 	);
+});
+
+test('the week view puts blocks at the time they show on the days the clocks change', () => {
+	const day = d('2026-11-01T00:00');
+	const ev = { id: 'x', start: d('2026-11-01T05:00'), end: d('2026-11-01T06:00') };
+	const [seg] = layoutTimedDay(expandEvents([ev], day, d('2026-11-02T00:00')), day);
+	assert.deepEqual([seg.sMin, seg.eMin], [300, 360], '5–6 AM, not 6–7');
+	const late = { id: 'y', start: d('2026-11-01T23:00'), end: d('2026-11-02T01:00') };
+	const [cut] = layoutTimedDay(expandEvents([late], day, d('2026-11-02T00:00')), day);
+	assert.deepEqual([cut.sMin, cut.eMin], [1380, 1440], 'runs to the bottom of the day');
+	const spring = d('2026-03-08T00:00');
+	const nine = { id: 'z', start: d('2026-03-08T09:00'), end: d('2026-03-08T10:30') };
+	const [s2] = layoutTimedDay(expandEvents([nine], spring, d('2026-03-09T00:00')), spring);
+	assert.deepEqual([s2.sMin, s2.eMin], [540, 630]);
 });
