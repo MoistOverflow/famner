@@ -2846,8 +2846,8 @@
   .mini-day.selected { background: var(--accent); color: #fff; }
 
   /* main area */
-  /* sideways finger moves are ours (swipe to the next week or month); up and down still scroll */
-  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y pinch-zoom; }
+  /* sideways finger moves are ours (swipe to the next week or month); up and down still scroll; no zooming */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
 
   /* day / week */
   .time-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -2884,7 +2884,7 @@
 
   .scroll-wrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
   /* the time grid scrolls up and down only, and at its top/bottom the page doesn't take over */
-  .scroll { flex: 1; overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain; touch-action: pan-y pinch-zoom; }
+  .scroll { flex: 1; overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain; touch-action: pan-y; }
   .offscreen {
     position: absolute; left: 50%; transform: translateX(-50%); z-index: 5;
     padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;

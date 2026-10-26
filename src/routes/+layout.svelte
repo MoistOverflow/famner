@@ -203,6 +203,13 @@
   // the theme is an account setting (Account page): use it on every device this person signs in on
   $effect(() => { const t = user?.theme; untrack(() => followAccount(t)); });
 
+  // no pinch-zoom on older iPhones, which only listen to their own gesture events
+  $effect(() => {
+    const stop = (e) => e.preventDefault();
+    document.addEventListener('gesturestart', stop, { passive: false });
+    return () => document.removeEventListener('gesturestart', stop);
+  });
+
   // page background, scrollbars and form controls follow the theme
   $effect(() => {
     document.documentElement.dataset.theme = ui.theme;
@@ -355,6 +362,8 @@
   /* no rubber-band dragging of the whole page (iPhone), and never sideways: scrolling inside the
      calendar, lists etc. stays inside them; long pages still scroll normally */
   :global(html) { background: var(--app-bg); overscroll-behavior: none; overflow-x: clip; }
+  /* no pinch or double-tap zoom anywhere: scrolling only (iOS ignores user-scalable=no on its own) */
+  :global(html), :global(body) { touch-action: pan-x pan-y; }
   :global(body) { overscroll-behavior: none; overflow-x: clip; }
   :global(body) {
     margin: 0;
