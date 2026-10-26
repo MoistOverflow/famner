@@ -272,7 +272,27 @@
 
   const timed = $derived(view === 'month' ? [] : days.map((d) => layoutTimedDay(occs, d, 0, 1440)));
   const strip = $derived(view === 'month' ? { items: [], rows: 0 } : layoutStrip(occs, days));
-  const monthItems = $derived(view === 'month' ? monthCells.map((d) => occurrencesOnDay(occs, d)) : []);
+  // month cells, iOS-style: all-day bars keep the same row across a week (with gaps where needed),
+  // then the day's timed events. Per cell: { bars: [bar | null], timed: [occ], count }
+  const monthItems = $derived.by(() => {
+    if (view !== 'month') return [];
+    const out = [];
+    for (let w = 0; w < monthCells.length / 7; w++) {
+      const week = monthCells.slice(w * 7, w * 7 + 7);
+      const { items } = layoutStrip(occs, week);
+      for (let c = 0; c < 7; c++) {
+        const bars = [];
+        for (const it of items) {
+          if (it.startCol > c || c > it.endCol) continue;
+          bars[it.row] = { occ: it.occ, first: c === it.startCol, joinL: c > it.startCol || it.contLeft, joinR: c < it.endCol || it.contRight };
+        }
+        const lanes = Array.from(bars, (b) => b ?? null);
+        const timedHere = occurrencesOnDay(occs, week[c]).filter((o) => !isLong(o));
+        out.push({ bars: lanes, timed: timedHere, count: lanes.filter(Boolean).length + timedHere.length });
+      }
+    }
+    return out;
+  });
 
   // ---------- sizing ----------
   let root;
@@ -287,7 +307,7 @@
       : hourHeight
   );
   const monthRows = $derived(monthCells.length / 7);
-  const maxChips = $derived(Math.max(1, Math.floor((monthH / monthRows - 30) / 22)));
+  const maxChips = $derived(Math.max(1, Math.floor((monthH / monthRows - 31) / 20)));
 
   $effect(() => {
     if (!fitToViewport) { rootHeight = null; return; }
@@ -2093,43 +2113,54 @@
           </div>
           <div class="m-grid" style="--rows: {monthRows}" bind:clientHeight={monthH}>
             {#each monthCells as d, i (+d)}
-              {@const items = monthItems[i] ?? []}
-              {@const shown = items.length > maxChips ? items.slice(0, maxChips - 1) : items}
+              {@const cell = monthItems[i] ?? { bars: [], timed: [], count: 0 }}
+              {@const slots = [...cell.bars.map((bar) => ({ bar })), ...cell.timed.map((occ) => ({ occ }))]}
+              {@const shown = slots.length > maxChips ? slots.slice(0, maxChips - 1) : slots}
+              {@const hiddenCount = cell.count - shown.filter((x) => x.bar || x.occ).length}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <div
                 class="m-cell"
                 class:out={d.getMonth() !== date.getMonth()}
                 class:weekend={isWeekend(d)}
+                class:has-today={sameDay(d, now)}
                 class:drop={moving?.kind === 'days' && moving.hoverDate === ymd(d)}
                 data-date={ymd(d)}
                 onclick={(e) => { if (!suppressClick && !e.target.closest('button')) openNewAllDay(d); }}
               >
                 <button class="m-num" class:today={sameDay(d, now)} aria-label="Open {d.toDateString()}" onclick={() => openDay(d)}>{d.getDate()}</button>
                 <div class="m-list">
-                  {#each shown as o (o.key)}
-                    <button
-                      class="chip"
-                      class:long={isLong(o)}
-                      class:dragging={moving?.key === o.key}
-                      class:readonly={!canEditEvent(o.event)}
-                      style="--c: {colorOf[o.event.calendar] ?? '#888'}"
-                      title={occTooltip(o)}
-                      onpointerdown={(e) => onDayItemPointerDown(e, o)}
-                      onclick={() => onOccClick(o)}
-                    >
-                      {#if !isLong(o)}
-                        <span class="dot"></span>
-                        {#if sameDay(o.start, d)}
-                          <span class="chip-time">{shortTime(o.start)}</span>
-                        {:else if sameDay(new Date(+o.end - 1), d)}
-                          <span class="chip-time">→{shortTime(o.end)}</span>
+                  {#each shown as x, k (x.bar ? x.bar.occ.key : x.occ ? x.occ.key : `gap-${k}`)}
+                    {@const o = x.bar?.occ ?? x.occ}
+                    {#if !o}
+                      <div class="gap" aria-hidden="true"></div>
+                    {:else}
+                      <button
+                        class="chip"
+                        class:long={!!x.bar}
+                        class:join-l={x.bar?.joinL}
+                        class:join-r={x.bar?.joinR}
+                        class:dragging={moving?.key === o.key}
+                        class:readonly={!canEditEvent(o.event)}
+                        style="--c: {colorOf[o.event.calendar] ?? '#888'}"
+                        title={occTooltip(o)}
+                        aria-label={x.bar && !x.bar.first ? o.event.title : undefined}
+                        onpointerdown={(e) => onDayItemPointerDown(e, o)}
+                        onclick={() => onOccClick(o)}
+                      >
+                        <!-- a bar's title is written once per week, where it starts -->
+                        {#if !x.bar || x.bar.first}<span class="chip-title">{o.event.title}</span>{/if}
+                        {#if !x.bar}
+                          {#if sameDay(o.start, d)}
+                            <span class="chip-time">{shortTime(o.start)}</span>
+                          {:else if sameDay(new Date(+o.end - 1), d)}
+                            <span class="chip-time">→{shortTime(o.end)}</span>
+                          {/if}
                         {/if}
-                      {/if}
-                      <span class="chip-title">{o.event.title}</span>
-                    </button>
+                      </button>
+                    {/if}
                   {/each}
-                  {#if items.length > shown.length}
-                    <button class="more" onclick={() => openDay(d)}>+{items.length - shown.length} more</button>
+                  {#if hiddenCount > 0}
+                    <button class="more" onclick={() => openDay(d)}>+{hiddenCount} more</button>
                   {/if}
                 </div>
               </div>
@@ -2579,6 +2610,7 @@
     --line: #e6e8ec;
     --hover: #eef0f4;
     --accent: #3b82f6;
+    --today: #e5483f;
     --accent-soft: #e6effe;
     --danger: #e5484d;
     --gutter: 64px;
@@ -2605,6 +2637,7 @@
     --line: #353842;
     --hover: #2e313a;
     --accent: #60a5fa;
+    --today: #ff5a4f;
     --accent-soft: #2a3a55;
     color-scheme: dark;
   }
@@ -2867,35 +2900,42 @@
   /* month */
   .month { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .m-head { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
-  .m-head div { padding: 8px; font-size: 12px; font-weight: 500; color: var(--muted); text-align: center; }
+  .m-head div { padding: 6px 4px; font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
   .m-grid {
     flex: 1; min-height: 0; display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
   }
+  /* only lines between the weeks, like a phone's month view; bars run on from one day to the next */
   .m-cell {
-    min-height: 0; min-width: 0; padding: 4px; display: flex; flex-direction: column; gap: 2px;
-    border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; cursor: cell;
+    --pad: 3px;
+    min-height: 0; min-width: 0; padding: 2px var(--pad) 3px; display: flex; flex-direction: column; gap: 2px;
+    border-top: 1px solid var(--line); overflow: hidden; cursor: cell;
   }
-  .m-cell:nth-child(7n + 1) { border-left: 0; }
-  .m-cell.weekend { background: var(--weekend); }
-  .m-cell.out .m-num { color: var(--muted); opacity: 0.6; }
+  .m-cell.out > * { opacity: 0.4; }
   .m-cell.drop { background: var(--accent-soft); }
-  .m-num { align-self: center; min-width: 24px; height: 24px; padding: 0 4px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+  .m-num { align-self: center; min-width: 24px; height: 24px; padding: 0 5px; border-radius: 12px; font-size: 13px; font-weight: 500; flex-shrink: 0; }
+  .m-cell.weekend .m-num { color: var(--muted); }
   .m-num:hover { background: var(--hover); }
-  .m-num.today { background: var(--accent); color: #fff; }
+  .m-cell .m-num.today { background: var(--today); color: #fff; font-weight: 700; }
   .m-list { display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+  .gap { height: 18px; flex-shrink: 0; }
+  /* timed events: a light wash of the calendar's color, the title in a deeper shade of it */
   .chip {
-    display: flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; min-width: 0;
-    border-radius: 4px; font-size: 12px; text-align: left; cursor: grab;
+    display: flex; align-items: center; gap: 4px; height: 18px; padding: 0 5px; min-width: 0; flex-shrink: 0;
+    border-radius: 4px; font-size: 11.5px; font-weight: 500; text-align: left; cursor: grab;
+    background: color-mix(in srgb, var(--c) 16%, transparent);
+    color: color-mix(in srgb, var(--c) 62%, var(--text));
   }
-  .chip:hover { background: var(--hover); }
+  .chip:hover { background: color-mix(in srgb, var(--c) 26%, transparent); }
+  /* all-day and multi-day events: solid bars, squared off where they carry on to the next day */
   .chip.long { background: var(--c); color: #fff; font-weight: 600; }
   .chip.long:hover { filter: brightness(1.08); }
+  .chip.join-l { margin-left: calc(-1 * var(--pad)); border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: calc(5px + var(--pad)); }
+  .chip.join-r { margin-right: calc(-1 * var(--pad)); border-top-right-radius: 0; border-bottom-right-radius: 0; }
   .chip.dragging { opacity: 0.4; }
-  .dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--c); }
-  .chip-time { color: var(--muted); flex-shrink: 0; }
-  .chip-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip-time { margin-left: auto; padding-left: 2px; color: var(--muted); font-weight: 400; flex-shrink: 0; }
+  .chip-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   .more { height: 20px; padding: 0 6px; font-size: 12px; font-weight: 600; text-align: left; color: var(--muted); border-radius: 4px; }
   .more:hover { background: var(--hover); color: var(--text); }
 
@@ -3011,7 +3051,9 @@
     .event { padding: 2px 4px; }
     .ev-time { display: none; }
     .chip-time { display: none; }
-    .m-cell { padding: 2px; }
-    .chip { padding: 0 3px; }
+    .m-cell { --pad: 1px; }
+    .chip { padding: 0 3px; font-size: 10.5px; }
+    .chip.join-l { padding-left: calc(3px + var(--pad)); }
+    .m-num { font-size: 12px; min-width: 22px; height: 22px; }
   }
 </style>
