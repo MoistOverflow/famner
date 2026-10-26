@@ -698,6 +698,31 @@
     setTimeout(() => (suppressClick = false), 0);
   }
 
+  // ---------- swipe sideways (touch): next / previous week, month or day ----------
+  // Listened to while capturing, so a swipe that starts on an event counts too. A long-press drag
+  // never becomes a swipe: moving before it's armed cancels the drag, and an armed one is skipped here.
+  const SWIPE = { minX: 60, ratio: 1.5, maxMs: 800 };
+  let swipe = null;
+  let mainEl = $state();
+  function onSwipeStart(e) {
+    swipe = null;
+    if (e.pointerType !== 'touch' || !e.isPrimary || e.target.closest('input, textarea, select, .resize-handle')) return;
+    swipe = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: Date.now() };
+  }
+  function onSwipeEnd(e) {
+    const sw = swipe;
+    swipe = null;
+    if (!sw || e.pointerId !== sw.id || gesture?.armed || moving || draft) return;
+    const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
+    if (Math.abs(dx) < SWIPE.minX || Math.abs(dx) < SWIPE.ratio * Math.abs(dy) || Date.now() - sw.t0 > SWIPE.maxMs) return;
+    const dir = dx < 0 ? 1 : -1; // finger to the left → later
+    step(dir);
+    blockNextClick();
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      mainEl?.animate([{ transform: `translateX(${dir * 28}px)`, opacity: 0.35 }, { transform: 'none', opacity: 1 }], { duration: 200, easing: 'ease-out' });
+    }
+  }
+
   function onColPointerDown(e, day) {
     if (!addableCalendars.length) return;
     if (e.target.closest('.event')) return;
@@ -2107,7 +2132,14 @@
     {/if}
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <main class="main" oncontextmenu={(e) => lastTouch && e.preventDefault()}>
+    <main
+      class="main"
+      bind:this={mainEl}
+      oncontextmenu={(e) => lastTouch && e.preventDefault()}
+      onpointerdowncapture={onSwipeStart}
+      onpointerupcapture={onSwipeEnd}
+      onpointercancelcapture={() => (swipe = null)}
+    >
       {#if view === 'month'}
         <div class="month">
           <div class="m-head">
@@ -2625,8 +2657,7 @@
     font-size: 14px;
     color: var(--text);
     background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 8px;
+    /* no frame: it fills its container edge to edge (give the container a border if one is wanted) */
     overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
@@ -2815,7 +2846,8 @@
   .mini-day.selected { background: var(--accent); color: #fff; }
 
   /* main area */
-  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  /* sideways finger moves are ours (swipe to the next week or month); up and down still scroll */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y pinch-zoom; }
 
   /* day / week */
   .time-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }

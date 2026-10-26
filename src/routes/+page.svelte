@@ -93,11 +93,12 @@
     {store}
     storageKey={STORAGE_KEY}
     corsProxy={ICS_PROXY}
+    bottomOffset={0}
   />
 </div>
 
 <style>
-  /* the calendar sizes itself to the space left below the nav bar */
-  .page { padding: 16px 16px 0; }
-  @media (max-width: 560px) { .page { padding: 8px 8px 0; } }
+  /* the calendar fills the space left below the top bar (and above the tab bar on phones), edge to edge */
+  .page { padding: 0; }
+  @media (max-width: 560px) { .page { padding: 0 6px; } } /* a little breathing room at the screen edges on phones */
 </style>
