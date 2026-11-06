@@ -391,7 +391,8 @@
     display: grid; place-items: center; width: 30px; height: 30px; margin-top: 1px; flex-shrink: 0; cursor: pointer;
     border-radius: 50%; border: 2px solid var(--app-muted); background: none; color: transparent;
   }
-  .done-btn:hover { border-color: #22c55e; color: #22c55e; }
+  /* only with a mouse: a tapped spot stays "hovered" on phones (see groceries) */
+  @media (hover: hover) { .done-btn:hover { border-color: #22c55e; color: #22c55e; } }
   .done-btn.approve { border-color: var(--app-accent); color: var(--app-accent); }
   .done-btn.waiting { cursor: default; border-style: dashed; color: var(--app-accent); border-color: var(--app-accent); }
   .main { flex: 1; min-width: 0; }

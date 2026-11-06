@@ -398,9 +398,13 @@
     display: grid; place-items: center; width: 26px; height: 26px; margin-right: 8px; flex-shrink: 0;
     border-radius: 50%; border: 2px solid var(--app-muted); color: transparent;
   }
-  .check:hover { border-color: #22c55e; color: #22c55e; }
   .check.on { border-color: #22c55e; background: #22c55e; color: #fff; }
-  .check.on:hover:not(:disabled) { background: transparent; color: #22c55e; }
+  /* hover previews only with a mouse: on phones a tapped spot stays "hovered", so the next item that
+     slides into it would look checked until the next tap */
+  @media (hover: hover) {
+    .check:hover { border-color: #22c55e; color: #22c55e; }
+    .check.on:hover:not(:disabled) { background: transparent; color: #22c55e; }
+  }
   .check.on:disabled { opacity: 1; }
   .check.static { border-style: dotted; }
   .by { color: var(--app-muted); font-size: 12px; }
